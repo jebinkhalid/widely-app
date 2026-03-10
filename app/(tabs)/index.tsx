@@ -1,29 +1,26 @@
 import { ThemedText } from "@/components/themed-text";
-import { useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-export default function HomeScreen() {
-  const [lang, setLang] = useState("en"); // 'en' for English, 'ar' for Arabic
+// 1. You MUST import useLanguage to use the global state
+import { useLanguage } from "../../context/LanguageProvider";
 
-  // A simple helper to pick the right text
-  const t = (enText: string, arText: string) =>
-    lang === "en" ? enText : arText;
+export default function HomeScreen() {
+  // 2. Pull the global state and the 't' helper from your context
+  const { lang, toggleLang, t } = useLanguage();
+
   return (
     <ScrollView
       style={[styles.container, { direction: lang === "ar" ? "rtl" : "ltr" }]}
     >
-      {" "}
       {/* 1. SEARCH BAR AREA */}
       <View style={styles.searchSection}>
-        {/* --- ADD THE LANGUAGE TOGGLE HERE --- */}
         <TouchableOpacity
-          onPress={() => setLang(lang === "en" ? "ar" : "en")}
+          onPress={toggleLang}
           style={{ alignSelf: "flex-end", marginBottom: 10 }}
         >
           <ThemedText style={{ color: "#ffee00", fontWeight: "bold" }}>
             {lang === "en" ? "العربية" : "English"}
           </ThemedText>
         </TouchableOpacity>
-        {/* ------------------------------------ */}
 
         <View style={styles.searchBar}>
           <ThemedText style={{ color: "#888" }}>
@@ -31,6 +28,7 @@ export default function HomeScreen() {
           </ThemedText>
         </View>
       </View>
+
       {/* 2. PROMO BANNER */}
       <View style={styles.banner}>
         <ThemedText style={styles.bannerTitle}>
@@ -40,26 +38,35 @@ export default function HomeScreen() {
           {t("UP TO 90% OFF", "خصم يصل إلى 90%")}
         </ThemedText>
       </View>
+
       {/* 3. CATEGORIES ROW */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.catRow}
       >
-        {["Women", "Men", "Home", "Fashion", "Tech"].map((cat) => (
-          <View key={cat} style={styles.catItem}>
+        {/* We use an array of objects to handle translations easily */}
+        {[
+          { en: "Women", ar: "نساء" },
+          { en: "Men", ar: "رجال" },
+          { en: "Home", ar: "منزل" },
+          { en: "Fashion", ar: "موضة" },
+          { en: "Tech", ar: "تقنية" },
+        ].map((cat) => (
+          <View key={cat.en} style={styles.catItem}>
             <View style={styles.catCircle} />
-            <ThemedText style={styles.catText}>{cat}</ThemedText>
+            <ThemedText style={styles.catText}>{t(cat.en, cat.ar)}</ThemedText>
           </View>
         ))}
       </ScrollView>
-      {/* 4. PRODUCT GRID (Example) */}
+
+      {/* 4. PRODUCT GRID */}
       <View style={styles.grid}>
         <View style={styles.productCard}>
-          <ThemedText>Item 1</ThemedText>
+          <ThemedText>{t("Item 1", "منتج ١")}</ThemedText>
         </View>
         <View style={styles.productCard}>
-          <ThemedText>Item 2</ThemedText>
+          <ThemedText>{t("Item 2", "منتج ٢")}</ThemedText>
         </View>
       </View>
     </ScrollView>
@@ -69,10 +76,10 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff", // White background
+    backgroundColor: "#fff",
   },
   searchSection: {
-    backgroundColor: "#000", // Black Header
+    backgroundColor: "#000",
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 15,
@@ -85,7 +92,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   banner: {
-    backgroundColor: "#ffee00", // Your Yellow
+    backgroundColor: "#ffee00",
     margin: 15,
     height: 150,
     borderRadius: 15,
@@ -115,7 +122,7 @@ const styles = StyleSheet.create({
     width: 65,
     height: 65,
     borderRadius: 35,
-    backgroundColor: "#000", // Black circles
+    backgroundColor: "#000",
     marginBottom: 5,
   },
   catText: {
@@ -127,6 +134,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "space-around",
     paddingHorizontal: 10,
+    paddingBottom: 20,
   },
   productCard: {
     width: "45%",
