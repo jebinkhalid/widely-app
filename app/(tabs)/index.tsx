@@ -1,72 +1,144 @@
 import { ThemedText } from "@/components/themed-text";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-// 1. You MUST import useLanguage to use the global state
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions, // Added for responsiveness
+} from "react-native";
 import { useLanguage } from "../../context/LanguageProvider";
 
+// Professional Layout Constant
+const MAX_CONTENT_WIDTH = 1200;
+
 export default function HomeScreen() {
-  // 2. Pull the global state and the 't' helper from your context
   const { lang, toggleLang, t } = useLanguage();
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Detect screen width
+  const { width: screenWidth } = useWindowDimensions();
 
   return (
     <ScrollView
-      style={[styles.container, { direction: lang === "ar" ? "rtl" : "ltr" }]}
+      style={styles.container}
+      contentContainerStyle={{ alignItems: "center" }} // Centers the content wrapper
+      showsVerticalScrollIndicator={false}
     >
-      {/* 1. SEARCH BAR AREA */}
-      <View style={styles.searchSection}>
-        <TouchableOpacity
-          onPress={toggleLang}
-          style={{ alignSelf: "flex-end", marginBottom: 10 }}
-        >
-          <ThemedText style={{ color: "#ffee00", fontWeight: "bold" }}>
-            {lang === "en" ? "العربية" : "English"}
-          </ThemedText>
-        </TouchableOpacity>
-
-        <View style={styles.searchBar}>
-          <ThemedText style={{ color: "#888" }}>
-            {t("🔍 Search Widely...", "🔍 ابحث في وايدلي...")}
-          </ThemedText>
-        </View>
-      </View>
-
-      {/* 2. PROMO BANNER */}
-      <View style={styles.banner}>
-        <ThemedText style={styles.bannerTitle}>
-          {t("GRAND SALES", "تخفيضات كبرى")}
-        </ThemedText>
-        <ThemedText style={styles.bannerSub}>
-          {t("UP TO 90% OFF", "خصم يصل إلى 90%")}
-        </ThemedText>
-      </View>
-
-      {/* 3. CATEGORIES ROW */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.catRow}
+      {/* 1. SEARCH SECTION (Stretches full width background, but content is centered) */}
+      <View
+        style={[styles.searchSection, { width: "100%", alignItems: "center" }]}
       >
-        {/* We use an array of objects to handle translations easily */}
-        {[
-          { en: "Women", ar: "نساء" },
-          { en: "Men", ar: "رجال" },
-          { en: "Home", ar: "منزل" },
-          { en: "Fashion", ar: "موضة" },
-          { en: "Tech", ar: "تقنية" },
-        ].map((cat) => (
-          <View key={cat.en} style={styles.catItem}>
-            <View style={styles.catCircle} />
-            <ThemedText style={styles.catText}>{t(cat.en, cat.ar)}</ThemedText>
-          </View>
-        ))}
-      </ScrollView>
+        <View
+          style={[
+            styles.contentWrapper,
+            { direction: lang === "ar" ? "rtl" : "ltr" },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={toggleLang}
+            style={{
+              alignSelf: lang === "ar" ? "flex-start" : "flex-end",
+              marginBottom: 10,
+            }}
+          >
+            <ThemedText style={{ color: "#ffee00", fontWeight: "bold" }}>
+              {lang === "en" ? "العربية" : "English"}
+            </ThemedText>
+          </TouchableOpacity>
 
-      {/* 4. PRODUCT GRID */}
-      <View style={styles.grid}>
-        <View style={styles.productCard}>
-          <ThemedText>{t("Item 1", "منتج ١")}</ThemedText>
+          <View style={styles.searchBar}>
+            <TextInput
+              placeholder={t("🔍 Search Widely...", "🔍 ابحث في وايدلي...")}
+              placeholderTextColor="#888"
+              style={[
+                { flex: 1, paddingHorizontal: 20 },
+                { textAlign: lang === "ar" ? "right" : "left" },
+                { outlineStyle: "none" } as any,
+              ]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={() => {
+                if (searchQuery.trim().length > 0) {
+                  router.push({
+                    pathname: "/search-results",
+                    params: { q: searchQuery },
+                  });
+                }
+              }}
+              returnKeyType="search"
+            />
+          </View>
         </View>
-        <View style={styles.productCard}>
-          <ThemedText>{t("Item 2", "منتج ٢")}</ThemedText>
+      </View>
+
+      {/* 2. BODY SECTION (Wrapped in Max Width) */}
+      <View
+        style={[
+          styles.contentWrapper,
+          { direction: lang === "ar" ? "rtl" : "ltr" },
+        ]}
+      >
+        {/* PROMO BANNER */}
+        <View style={styles.banner}>
+          <ThemedText style={styles.bannerTitle}>
+            {t("GRAND SALES", "تخفيضات كبرى")}
+          </ThemedText>
+          <ThemedText style={styles.bannerSub}>
+            {t("UP TO 90% OFF", "خصم يصل إلى 90%")}
+          </ThemedText>
+        </View>
+
+        {/* 3. CATEGORIES ROW */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.catRow}
+          contentContainerStyle={{
+            flexDirection: lang === "ar" ? "row-reverse" : "row",
+            paddingRight: 20,
+          }}
+        >
+          {[
+            { en: "Women", ar: "نساء" },
+            { en: "Men", ar: "رجال" },
+            { en: "Home", ar: "منزل" },
+            { en: "Fashion", ar: "موضة" },
+            { en: "Tech", ar: "تقنية" },
+            { en: "Gaming", ar: "ألعاب" },
+            { en: "Beauty", ar: "جمال" },
+          ].map((cat) => (
+            <View key={cat.en} style={styles.catItem}>
+              <View style={styles.catCircle} />
+              <ThemedText style={styles.catText}>
+                {t(cat.en, cat.ar)}
+              </ThemedText>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* 4. PRODUCT GRID */}
+        <View
+          style={[
+            styles.grid,
+            { flexDirection: lang === "ar" ? "row-reverse" : "row" },
+          ]}
+        >
+          {/* Example of scaling cards: On desktop we could show 4, on mobile 2 */}
+          {[1, 2, 3, 4, 5, 6].map((item) => (
+            <View
+              key={item}
+              style={[
+                styles.productCard,
+                { width: screenWidth > 768 ? "23%" : "46%" }, // 4 columns on desktop, 2 on mobile
+              ]}
+            >
+              <ThemedText>{t(`Item ${item}`, `منتج ${item}`)}</ThemedText>
+            </View>
+          ))}
         </View>
       </View>
     </ScrollView>
@@ -78,73 +150,78 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  contentWrapper: {
+    width: "100%",
+    maxWidth: MAX_CONTENT_WIDTH,
+    paddingHorizontal: 15,
+  },
   searchSection: {
     backgroundColor: "#000",
     paddingTop: 60,
-    paddingBottom: 20,
-    paddingHorizontal: 15,
+    paddingBottom: 25,
   },
   searchBar: {
     backgroundColor: "#fff",
-    height: 45,
+    height: 50,
     borderRadius: 25,
     justifyContent: "center",
-    paddingHorizontal: 20,
   },
   banner: {
     backgroundColor: "#ffee00",
-    margin: 15,
-    height: 150,
-    borderRadius: 15,
+    marginTop: 20,
+    marginBottom: 25,
+    height: 180,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
     borderColor: "#000",
   },
   bannerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "900",
     color: "#000",
   },
   bannerSub: {
-    fontSize: 18,
+    fontSize: 20,
     color: "#000",
+    marginTop: 5,
   },
   catRow: {
-    paddingLeft: 15,
-    marginBottom: 20,
+    marginBottom: 30,
   },
   catItem: {
     alignItems: "center",
-    marginRight: 20,
+    marginRight: 25,
   },
   catCircle: {
-    width: 65,
-    height: 65,
+    width: 70,
+    height: 70,
     borderRadius: 35,
-    backgroundColor: "#000",
-    marginBottom: 5,
+    backgroundColor: "#f0f0f0",
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
   },
   catText: {
-    fontSize: 12,
-    color: "#000",
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#333",
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-around",
-    paddingHorizontal: 10,
-    paddingBottom: 20,
+    justifyContent: "flex-start",
+    gap: 15, // Using gap instead of space-around for more control
+    paddingBottom: 40,
   },
   productCard: {
-    width: "45%",
-    height: 200,
-    backgroundColor: "#f2f2f2",
-    marginBottom: 15,
-    borderRadius: 10,
+    height: 220,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: "#efefef",
   },
 });

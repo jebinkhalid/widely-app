@@ -1,5 +1,5 @@
 import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
@@ -37,7 +37,7 @@ export default function TabLayout() {
         options={{
           title: t("Home", "الرئيسية"),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+            <Ionicons name="home-outline" size={24} color={color} />
           ),
         }}
       />
@@ -46,7 +46,7 @@ export default function TabLayout() {
         options={{
           title: t("Categories", "الأقسام"),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="square.grid.2x2.fill" color={color} />
+            <Ionicons name="grid-outline" size={24} color={color} />
           ),
         }}
       />
@@ -55,7 +55,7 @@ export default function TabLayout() {
         options={{
           title: t("Deals", "العروض"),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="bolt.fill" color={color} />
+            <Ionicons name="flash-outline" size={24} color={color} />
           ),
         }}
       />
@@ -64,7 +64,7 @@ export default function TabLayout() {
         options={{
           title: t("Cart", "السلة"),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="cart.fill" color={color} />
+            <Ionicons name="cart-outline" size={24} color={color} />
           ),
         }}
       />
@@ -73,7 +73,7 @@ export default function TabLayout() {
         options={{
           title: t("Account", "حسابي"),
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="person.fill" color={color} />
+            <Ionicons name="person-outline" size={24} color={color} />
           ),
         }}
       />
