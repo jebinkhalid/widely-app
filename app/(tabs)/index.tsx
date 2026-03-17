@@ -7,28 +7,25 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions, // Added for responsiveness
+  useWindowDimensions,
 } from "react-native";
 import { useLanguage } from "../../context/LanguageProvider";
 
-// Professional Layout Constant
 const MAX_CONTENT_WIDTH = 1200;
 
 export default function HomeScreen() {
   const { lang, toggleLang, t } = useLanguage();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Detect screen width
   const { width: screenWidth } = useWindowDimensions();
 
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ alignItems: "center" }} // Centers the content wrapper
+      contentContainerStyle={{ alignItems: "center" }}
       showsVerticalScrollIndicator={false}
     >
-      {/* 1. SEARCH SECTION (Stretches full width background, but content is centered) */}
+      {/* 1. SEARCH SECTION */}
       <View
         style={[styles.searchSection, { width: "100%", alignItems: "center" }]}
       >
@@ -75,14 +72,13 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* 2. BODY SECTION (Wrapped in Max Width) */}
+      {/* 2. BODY SECTION */}
       <View
         style={[
           styles.contentWrapper,
           { direction: lang === "ar" ? "rtl" : "ltr" },
         ]}
       >
-        {/* PROMO BANNER */}
         <View style={styles.banner}>
           <ThemedText style={styles.bannerTitle}>
             {t("GRAND SALES", "تخفيضات كبرى")}
@@ -107,9 +103,6 @@ export default function HomeScreen() {
             { en: "Men", ar: "رجال" },
             { en: "Home", ar: "منزل" },
             { en: "Fashion", ar: "موضة" },
-            { en: "Tech", ar: "تقنية" },
-            { en: "Gaming", ar: "ألعاب" },
-            { en: "Beauty", ar: "جمال" },
           ].map((cat) => (
             <View key={cat.en} style={styles.catItem}>
               <View style={styles.catCircle} />
@@ -127,13 +120,12 @@ export default function HomeScreen() {
             { flexDirection: lang === "ar" ? "row-reverse" : "row" },
           ]}
         >
-          {/* Example of scaling cards: On desktop we could show 4, on mobile 2 */}
           {[1, 2, 3, 4, 5, 6].map((item) => (
             <View
               key={item}
               style={[
                 styles.productCard,
-                { width: screenWidth > 768 ? "23%" : "46%" }, // 4 columns on desktop, 2 on mobile
+                { width: screenWidth > 768 ? "23%" : "46%" },
               ]}
             >
               <ThemedText>{t(`Item ${item}`, `منتج ${item}`)}</ThemedText>
@@ -145,21 +137,15 @@ export default function HomeScreen() {
   );
 }
 
+// ... styles remain the same as you provided
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
   contentWrapper: {
     width: "100%",
     maxWidth: MAX_CONTENT_WIDTH,
     paddingHorizontal: 15,
   },
-  searchSection: {
-    backgroundColor: "#000",
-    paddingTop: 60,
-    paddingBottom: 25,
-  },
+  searchSection: { backgroundColor: "#000", paddingTop: 60, paddingBottom: 25 },
   searchBar: {
     backgroundColor: "#fff",
     height: 50,
@@ -177,23 +163,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#000",
   },
-  bannerTitle: {
-    fontSize: 32,
-    fontWeight: "900",
-    color: "#000",
-  },
-  bannerSub: {
-    fontSize: 20,
-    color: "#000",
-    marginTop: 5,
-  },
-  catRow: {
-    marginBottom: 30,
-  },
-  catItem: {
-    alignItems: "center",
-    marginRight: 25,
-  },
+  bannerTitle: { fontSize: 32, fontWeight: "900", color: "#000" },
+  bannerSub: { fontSize: 20, color: "#000", marginTop: 5 },
+  catRow: { marginBottom: 30 },
+  catItem: { alignItems: "center", marginRight: 25 },
   catCircle: {
     width: 70,
     height: 70,
@@ -203,16 +176,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-  catText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#333",
-  },
+  catText: { fontSize: 13, fontWeight: "600", color: "#333" },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
-    gap: 15, // Using gap instead of space-around for more control
+    gap: 15,
     paddingBottom: 40,
   },
   productCard: {

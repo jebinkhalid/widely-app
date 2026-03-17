@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
+import { I18nManager } from "react-native";
 
 const LanguageContext = createContext<any>(null);
 
@@ -7,14 +8,29 @@ export const LanguageProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const [lang, setLang] = useState("en");
+  const [lang, setLangState] = useState("en");
 
-  const toggleLang = () => {
-    setLang((prev) => (prev === "en" ? "ar" : "en"));
+  // NEW: Direct selection for your Account page modals
+  const setLang = (newLang: string) => {
+    setLangState(newLang);
+    const isRTL = newLang === "ar";
+    if (I18nManager.isRTL !== isRTL) {
+      I18nManager.forceRTL(isRTL);
+      I18nManager.allowRTL(isRTL);
+    }
   };
+
+  // OLD: Kept here so your other existing screens don't crash
+  const toggleLang = () => {
+    const nextLang = lang === "en" ? "ar" : "en";
+    setLang(nextLang);
+  };
+
   const t = (en: string, ar: string) => (lang === "en" ? en : ar);
+
   return (
-    <LanguageContext.Provider value={{ lang, toggleLang, t }}>
+    // Passing both toggleLang (old) and setLang (new)
+    <LanguageContext.Provider value={{ lang, setLang, toggleLang, t }}>
       {children}
     </LanguageContext.Provider>
   );
