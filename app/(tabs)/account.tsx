@@ -1,20 +1,31 @@
+import { useWishlist } from "@/context/WishlistProvider";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios"; // Added Axios
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+  Alert,
   Modal,
-  SafeAreaView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLanguage } from "../../context/LanguageProvider";
+const BASE_URL =
+  Platform.OS === "web" ? "http://127.0.0.1:5000" : "http://172.20.10.3:5000";
 
 export default function AccountScreen() {
   const { lang, setLang, t } = useLanguage();
+  const router = useRouter();
+  const { wishlist } = useWishlist();
 
-  // Selection States
+  const [displayName, setDisplayName] = useState("User");
+  const [ordersCount, setOrdersCount] = useState(0); // Store dynamic order count
   const [country, setCountry] = useState({
     name: "Saudi Arabia",
     code: "SA",
@@ -22,6 +33,91 @@ export default function AccountScreen() {
   });
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
+
+  // 1. FETCH USERNAME AND ORDERS ON LOAD
+  useEffect(() => {
+    const getAccountData = async () => {
+      // Get Username
+      const storedName = await AsyncStorage.getItem("user_full_name");
+      if (storedName) setDisplayName(storedName);
+
+      // Fetch Orders from Backend
+      try {
+        const response = await axios.get(`${BASE_URL}/api/my-orders/rashid_21`);
+        setOrdersCount(response.data.length);
+      } catch (error) {
+        console.log("❌ Failed to fetch orders:", error);
+      }
+    };
+
+    getAccountData();
+  }, []);
+  // 1. FETCH USERNAME AND ORDERS ON LOAD
+  useEffect(() => {
+    const getAccountData = async () => {
+      // Get Username
+      const storedName = await AsyncStorage.getItem("user_full_name");
+      if (storedName) setDisplayName(storedName);
+
+      // Fetch Orders from Backend
+      try {
+        const response = await axios.get(
+          "http://172.20.10.2:5000/api/my-orders/rashid_21",
+        );
+
+        // ADD THESE LOGS HERE 👇
+        console.log("📡 API Response Status:", response.status);
+        console.log("📦 Orders Data from DB:", response.data);
+
+        if (Array.isArray(response.data)) {
+          setOrdersCount(response.data.length);
+        } else {
+          console.log("⚠️ Warning: Data is not an array!");
+        }
+      } catch (error) {
+        console.log("❌ Failed to fetch orders:", error);
+      }
+    };
+
+    getAccountData();
+  }, []);
+
+  const handleLogout = () => {
+    const performLogout = async () => {
+      try {
+        await AsyncStorage.removeItem("isLoggedIn");
+        await AsyncStorage.removeItem("user_full_name");
+        router.replace("/login");
+      } catch (e) {
+        console.error("Error signing out", e);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      const confirmWeb = window.confirm(
+        lang === "ar"
+          ? "هل أنت متأكد من تسجيل الخروج؟"
+          : "Are you sure you want to sign out?",
+      );
+      if (confirmWeb) performLogout();
+    } else {
+      Alert.alert(
+        t("Sign Out", "تسجيل الخروج"),
+        t(
+          "Are you sure you want to sign out?",
+          "هل أنت متأكد من تسجيل الخروج؟",
+        ),
+        [
+          { text: t("Cancel", "إلغاء"), style: "cancel" },
+          {
+            text: t("Sign Out", "تسجيل الخروج"),
+            style: "destructive",
+            onPress: performLogout,
+          },
+        ],
+      );
+    }
+  };
 
   const countries = [
     { name: "Saudi Arabia", code: "SA", flag: "🇸🇦" },
@@ -45,7 +141,13 @@ export default function AccountScreen() {
           ]}
         >
           <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>RM</Text>
+            <Text style={styles.avatarText}>
+              {displayName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()}
+            </Text>
           </View>
           <View
             style={[
@@ -53,7 +155,7 @@ export default function AccountScreen() {
               { alignItems: lang === "ar" ? "flex-end" : "flex-start" },
             ]}
           >
-            <Text style={styles.userName}>Hala Rashid</Text>
+            <Text style={styles.userName}>{displayName}</Text>
             <Text style={styles.userEmail}>rashidmohammed359862@gmail.com</Text>
           </View>
           <TouchableOpacity style={styles.editButton}>
@@ -78,7 +180,11 @@ export default function AccountScreen() {
             <View style={styles.oneBadge}>
               <Text style={styles.oneBadgeText}>one</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#e91e63" />
+            <Ionicons
+              name={lang === "ar" ? "chevron-back" : "chevron-forward"}
+              size={16}
+              color="#e91e63"
+            />
           </View>
         </TouchableOpacity>
 
@@ -90,11 +196,13 @@ export default function AccountScreen() {
               { flexDirection: lang === "ar" ? "row-reverse" : "row" },
             ]}
           >
+            {/* Dynamic Orders Grid Item */}
             <GridItem
               icon="gift-outline"
               title={t("Orders", "الطلبات")}
-              sub={t("Manage & track", "إدارة وتتبع")}
+              sub={`${ordersCount} ${t("items", "عناصر")}`}
               lang={lang}
+              onPress={() => router.push("/orders-list")}
             />
             <GridItem
               icon="refresh-outline"
@@ -118,8 +226,9 @@ export default function AccountScreen() {
             <GridItem
               icon="heart-outline"
               title={t("Wishlist", "قائمة الأمنيات")}
-              sub={t("10 saved items", "10 عناصر")}
+              sub={`${wishlist.length} ${t("items", "عناصر")}`}
               lang={lang}
+              onPress={() => router.push("/wishlist")}
             />
           </View>
         </View>
@@ -138,14 +247,13 @@ export default function AccountScreen() {
             icon="location-outline"
             title={t("Addresses", "العناوين")}
             lang={lang}
+            onPress={() => router.push("/checkout/address-book")}
           />
           <ListItem
             icon="card-outline"
             title={t("Payment", "الدفع")}
             lang={lang}
           />
-
-          {/* Country Selector */}
           <ListItem
             icon="globe-outline"
             title={t("Country", "البلد")}
@@ -153,8 +261,6 @@ export default function AccountScreen() {
             onPress={() => setShowCountryModal(true)}
             lang={lang}
           />
-
-          {/* Language Selector */}
           <ListItem
             icon="language-outline"
             title={t("Language", "اللغة")}
@@ -165,10 +271,10 @@ export default function AccountScreen() {
           />
         </View>
 
-        {/* 5. SIGN OUT */}
-        <TouchableOpacity style={styles.signOutBox}>
-          <Ionicons name="power-outline" size={22} color="#555" />
-          <Text style={styles.signOutText}>
+        {/* 5. SIGN OUT BUTTON */}
+        <TouchableOpacity style={styles.signOutBox} onPress={handleLogout}>
+          <Ionicons name="power-outline" size={22} color="#d9534f" />
+          <Text style={[styles.signOutText, { color: "#d9534f" }]}>
             {t("Sign Out", "تسجيل الخروج")}
           </Text>
         </TouchableOpacity>
@@ -202,30 +308,28 @@ export default function AccountScreen() {
         </View>
       </ScrollView>
 
-      {/* MODALS FOR SELECTION */}
+      {/* MODALS */}
       <SelectionModal
         visible={showCountryModal}
         onClose={() => setShowCountryModal(false)}
         data={countries}
-        onSelect={(item) => {
+        onSelect={(item: any) => {
           setCountry(item);
           setShowCountryModal(false);
         }}
         title={t("Select Country", "اختر البلد")}
       />
-
       <SelectionModal
         visible={showLangModal}
         onClose={() => setShowLangModal(false)}
         data={languages}
-        onSelect={(item) => {
+        onSelect={(item: any) => {
           setLang(item.value);
           setShowLangModal(false);
         }}
         title={t("Select Language", "اختر اللغة")}
       />
 
-      {/* NEED HELP FLOATING BUTTON */}
       <TouchableOpacity style={styles.helpFab}>
         <Ionicons name="chatbubble-ellipses" size={24} color="black" />
         <Text style={styles.helpFabText}>{t("Need Help?", "مساعدة؟")}</Text>
@@ -235,9 +339,8 @@ export default function AccountScreen() {
 }
 
 // --- SUB COMPONENTS ---
-
-const GridItem = ({ icon, title, sub, lang }) => (
-  <TouchableOpacity style={styles.gridItem}>
+const GridItem = ({ icon, title, sub, lang, onPress }: any) => (
+  <TouchableOpacity style={styles.gridItem} onPress={onPress}>
     <Ionicons name={icon} size={24} color="#333" />
     <Text
       style={[
@@ -255,7 +358,14 @@ const GridItem = ({ icon, title, sub, lang }) => (
   </TouchableOpacity>
 );
 
-const ListItem = ({ icon, title, value, onPress, lang, isLast }) => (
+const ListItem = ({
+  icon,
+  title,
+  value = null,
+  onPress = () => {},
+  lang,
+  isLast = false,
+}: any) => (
   <TouchableOpacity
     onPress={onPress}
     style={[styles.listItem, isLast && { borderBottomWidth: 0 }]}
@@ -275,7 +385,7 @@ const ListItem = ({ icon, title, value, onPress, lang, isLast }) => (
         alignItems: "center",
       }}
     >
-      {value && <Text style={styles.listValue}>{value}</Text>}
+      {value ? <Text style={styles.listValue}>{value}</Text> : null}
       <Ionicons
         name={lang === "ar" ? "chevron-back" : "chevron-forward"}
         size={18}
@@ -285,19 +395,19 @@ const ListItem = ({ icon, title, value, onPress, lang, isLast }) => (
   </TouchableOpacity>
 );
 
-const SelectionModal = ({ visible, onClose, data, onSelect, title }) => (
+const SelectionModal = ({ visible, onClose, data, onSelect, title }: any) => (
   <Modal visible={visible} transparent animationType="slide">
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
         <Text style={styles.modalTitle}>{title}</Text>
-        {data.map((item, index) => (
+        {data.map((item: any, index: number) => (
           <TouchableOpacity
             key={index}
             style={styles.modalItem}
             onPress={() => onSelect(item)}
           >
             <Text style={styles.modalItemText}>
-              {item.flag ? `${item.flag}  ${item.name}` : item.label}
+              {item.flag ? `${item.flag} ${item.name}` : item.label}
             </Text>
           </TouchableOpacity>
         ))}
@@ -331,7 +441,6 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   editButtonText: { fontSize: 12, fontWeight: "600" },
-
   promoBanner: {
     margin: 15,
     padding: 15,
@@ -353,9 +462,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   oneBadgeText: { fontSize: 10, fontWeight: "bold" },
-
   gridContainer: { paddingHorizontal: 10 },
-  gridRow: { justifyContent: "space-between", marginBottom: 10 },
+  gridRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   gridItem: {
     width: "48%",
     backgroundColor: "#fff",
@@ -365,7 +477,6 @@ const styles = StyleSheet.create({
   },
   gridTitle: { fontSize: 14, fontWeight: "bold", marginTop: 10 },
   gridSub: { fontSize: 11, color: "#888", marginTop: 2 },
-
   section: { backgroundColor: "#fff", marginTop: 10, paddingHorizontal: 15 },
   sectionTitle: { fontSize: 16, fontWeight: "bold", paddingVertical: 15 },
   listItem: {
@@ -383,7 +494,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginRight: 5,
   },
-
   signOutBox: {
     marginTop: 20,
     backgroundColor: "#fff",
@@ -392,21 +502,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  signOutText: {
-    marginLeft: 10,
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#333",
-  },
-
+  signOutText: { marginLeft: 10, fontSize: 15, fontWeight: "500" },
   footer: { padding: 40, alignItems: "center" },
   sellText: { color: "#3866df", fontWeight: "bold", marginBottom: 20 },
   socialRow: { flexDirection: "row", marginBottom: 20 },
   versionText: { fontSize: 11, color: "#aaa" },
-
   helpFab: {
     position: "absolute",
-    bottom: 100,
+    bottom: 20,
     right: 20,
     backgroundColor: "#ffeb3b",
     flexDirection: "row",
@@ -417,7 +520,6 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   helpFabText: { marginLeft: 8, fontWeight: "bold", color: "#000" },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

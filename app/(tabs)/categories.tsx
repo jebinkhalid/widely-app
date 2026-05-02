@@ -134,7 +134,7 @@ export default function CategoriesScreen() {
     </TouchableOpacity>
   );
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item }: { item: typeof CATEGORIES[number] }) => {
     const imageSource =
       typeof item.img === "string" ? { uri: item.img } : item.img;
     return (

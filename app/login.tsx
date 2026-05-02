@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Device from "expo-device";
 import React, { useState } from "react";
 import {
     Alert,
@@ -12,7 +14,7 @@ import {
     View,
 } from "react-native";
 import { useLanguage } from "../context/LanguageProvider";
-import { VALID_USERS } from "./constants/Users"; // 1. Import your user list
+import { VALID_USERS } from "./constants/Users";
 
 export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const { lang, t } = useLanguage();
@@ -20,25 +22,56 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // 2. ONLY ONE handleLogin function
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const cleanUsername = username.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    // Check against the list in constants/Users.ts
-    const userExists = VALID_USERS.find(
+    // 1. Check if user exists in our constants
+    const user = VALID_USERS.find(
       (u) => u.username === cleanUsername && u.password === cleanPassword,
     );
 
-    if (userExists) {
-      onLogin(); // Success!
+    if (user) {
+      const currentDevice = Device.modelName || "unknown";
+
+      try {
+        // 2. Check for Device Lock
+        const registeredDevice = await AsyncStorage.getItem(
+          `device_for_${cleanUsername}`,
+        );
+
+        if (registeredDevice && registeredDevice !== currentDevice) {
+          Alert.alert(
+            t("Access Denied", "تم رفض الوصول"),
+            t(
+              "This account is already linked to another device.",
+              "هذا الحساب مرتبط بالفعل بجهاز آخر.",
+            ),
+          );
+        } else {
+          // 3. SUCCESS: Save session data
+          await AsyncStorage.setItem("isLoggedIn", "true");
+          await AsyncStorage.setItem(
+            `device_for_${cleanUsername}`,
+            currentDevice,
+          );
+
+          // Store full name for the Account screen
+          const fullName =
+            cleanUsername === "rashi" ? "Rashid Mohammed" : cleanUsername;
+          await AsyncStorage.setItem("user_full_name", fullName);
+
+          // 4. Update the App State
+          onLogin();
+        }
+      } catch (error) {
+        console.error("Storage Error:", error);
+        Alert.alert("Error", "Something went wrong with storage.");
+      }
     } else {
       Alert.alert(
-        t("Login Failed", "فشل تسجيل الدخول"),
-        t(
-          "Invalid username or password",
-          "اسم المستخدم أو كلمة المرور غير صحيحة",
-        ),
+        t("Error", "خطأ"),
+        t("Invalid credentials", "بيانات الاعتماد غير صالحة"),
       );
     }
   };
@@ -84,6 +117,7 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
+              placeholderTextColor="#999"
             />
           </View>
 
@@ -109,6 +143,7 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
+              placeholderTextColor="#999"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons

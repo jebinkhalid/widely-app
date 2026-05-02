@@ -1,51 +1,34 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { Stack, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-reanimated";
 
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { CartProvider } from "../context/CartContext";
 import { LanguageProvider } from "../context/LanguageProvider";
-import LoginScreen from "./login"; // Ensure this path is correct
-
-export const unstable_settings = {
-  anchor: "(tabs)",
-};
-
+import { WishlistProvider } from "../context/WishlistProvider"; // 👈 Added this import
+import LoginScreen from "./login";
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const segments = useSegments();
 
-  // 1. Check login status on app launch
-  useEffect(() => {
-    const checkLogin = async () => {
-      try {
-        const status = await AsyncStorage.getItem("isLoggedIn");
-        setIsAuthenticated(status === "true");
-      } catch (e) {
-        setIsAuthenticated(false);
-      }
-    };
-    checkLogin();
-  }, []);
-
-  // 2. Login Handler
-  const handleLogin = async () => {
+  const checkLogin = async () => {
     try {
-      await AsyncStorage.setItem("isLoggedIn", "true");
-      setIsAuthenticated(true);
+      const status = await AsyncStorage.getItem("isLoggedIn");
+      setIsAuthenticated(status === "true");
     } catch (e) {
-      console.error(e);
+      setIsAuthenticated(false);
     }
   };
-
-  // 3. Show a loading spinner while checking storage to prevent "flash"
+  useEffect(() => {
+    checkLogin();
+  }, [segments]);
+  const handleLogin = async () => {
+    await AsyncStorage.setItem("isLoggedIn", "true");
+    setIsAuthenticated(true);
+  };
   if (isAuthenticated === null) {
     return (
       <View
@@ -63,23 +46,33 @@ export default function RootLayout() {
 
   return (
     <LanguageProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        {/* 4. GATEKEEPER LOGIC */}
-        {!isAuthenticated ? (
-          <LoginScreen onLogin={handleLogin} />
-        ) : (
-          <>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="modal"
-                options={{ presentation: "modal", title: "Modal" }}
-              />
-            </Stack>
-            <StatusBar style="auto" />
-          </>
-        )}
-      </ThemeProvider>
+      <WishlistProvider>
+        <CartProvider>
+          <ThemeProvider value={DefaultTheme}>
+            {!isAuthenticated ? (
+              <LoginScreen onLogin={handleLogin} />
+            ) : (
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                {/* 👈 Ensure wishlist is registered if not in (tabs) */}
+                <Stack.Screen
+                  name="wishlist"
+                  options={{
+                    presentation: "card",
+                    headerShown: true,
+                    headerTitle: "Wishlist",
+                  }}
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{ presentation: "modal" }}
+                />
+              </Stack>
+            )}
+            <StatusBar style="dark" />
+          </ThemeProvider>
+        </CartProvider>
+      </WishlistProvider>
     </LanguageProvider>
   );
 }

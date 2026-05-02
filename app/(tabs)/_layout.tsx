@@ -4,17 +4,10 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
 import { useLanguage } from "../../context/LanguageProvider";
-
 export default function TabLayout() {
   const context = useLanguage();
-
-  // 🛡️ SAFETY GUARD: If the cloud isn't ready yet, don't show the tabs.
-  // This prevents the "Cannot destructure lang" error.
-  if (!context) {
-    return null;
-  }
-
-  const { lang, t } = context;
+  if (!context) return null;
+  const { t } = context;
 
   return (
     <Tabs
@@ -26,9 +19,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: "#000",
           borderTopWidth: 0,
-          // Flipped for Arabic!
-          flexDirection: lang === "ar" ? "row-reverse" : "row",
           height: Platform.OS === "ios" ? 90 : 70,
+          width: "100%",
         },
       }}
     >
@@ -50,6 +42,13 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="categories/[id]"
+        options={{
+          tabBarButton: () => null,
+        }}
+      />
+
       <Tabs.Screen
         name="deals"
         options={{
