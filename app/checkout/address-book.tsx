@@ -1,18 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    Modal,
-    Platform,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -30,6 +30,7 @@ const DEFAULT_KEY = "default_address_id";
 
 export default function AddressBookScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   // --- State ---
   const [menuVisible, setMenuVisible] = useState(false);
@@ -115,15 +116,15 @@ export default function AddressBookScreen() {
     }
   };
 
-// 5. EDIT LOGIC
-const handleEdit = () => {
-  if (!selectedAddress) return;
-  setMenuVisible(false);
-  router.push({
-    pathname: "/checkout/address",
-    params: { id: selectedAddress.id },
-  });
-};
+  // 5. EDIT LOGIC
+  const handleEdit = () => {
+    if (!selectedAddress) return;
+    setMenuVisible(false);
+    router.push({
+      pathname: "/checkout/address",
+      params: { id: selectedAddress.id, from: params.from },
+    });
+  };
 
   const handleShare = async (address?: Address) => {
     const target = address || selectedAddress;
@@ -155,7 +156,12 @@ const handleEdit = () => {
 
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => router.push("/checkout/location")}
+          onPress={() =>
+            router.push({
+              pathname: "/checkout/location",
+              params: { from: params.from },
+            })
+          }
         >
           <View style={styles.row}>
             <Ionicons name="add" size={26} color="#2B57CC" />

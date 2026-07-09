@@ -34,9 +34,6 @@ export default function LocationPage() {
   const [mapRegion, setMapRegion] = useState(currentCoords.current);
 
   const fetchAddressDetails = async (lat: number, lng: number) => {
-    // REMOVED: The Platform.OS === "web" check that was forcing Jeddah Central.
-    // This now allows the web version to perform reverse geocoding just like mobile.
-
     try {
       let result = await Location.reverseGeocodeAsync({
         latitude: lat,
@@ -157,7 +154,7 @@ export default function LocationPage() {
                 lng: currentCoords.current.longitude,
                 shortCode: addressInfo.shortCode,
                 district: addressInfo.district,
-                from: params.from, // <--- Add this line to forward the "checkout" flag
+                from: params.from, // Forwards the "checkout" flag down the pipeline
               },
             })
           }

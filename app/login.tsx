@@ -1,80 +1,91 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Device from "expo-device";
+import * as SecureStore from "expo-secure-store";
 import React, { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageProvider";
-import { VALID_USERS } from "./constants/Users";
+import api from "../services/api";
 
-export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
+export default function LoginScreen() {
   const { lang, t } = useLanguage();
+  const { login } = useAuth();
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    const cleanUsername = username.trim().toLowerCase();
-    const cleanPassword = password.trim();
-
-    // 1. Check if user exists in our constants
-    const user = VALID_USERS.find(
-      (u) => u.username === cleanUsername && u.password === cleanPassword,
-    );
-
-    if (user) {
-      const currentDevice = Device.modelName || "unknown";
-
-      try {
-        // 2. Check for Device Lock
-        const registeredDevice = await AsyncStorage.getItem(
-          `device_for_${cleanUsername}`,
-        );
-
-        if (registeredDevice && registeredDevice !== currentDevice) {
-          Alert.alert(
-            t("Access Denied", "تم رفض الوصول"),
-            t(
-              "This account is already linked to another device.",
-              "هذا الحساب مرتبط بالفعل بجهاز آخر.",
-            ),
-          );
-        } else {
-          // 3. SUCCESS: Save session data
-          await AsyncStorage.setItem("isLoggedIn", "true");
-          await AsyncStorage.setItem(
-            `device_for_${cleanUsername}`,
-            currentDevice,
-          );
-
-          // Store full name for the Account screen
-          const fullName =
-            cleanUsername === "rashi" ? "Rashid Mohammed" : cleanUsername;
-          await AsyncStorage.setItem("user_full_name", fullName);
-
-          // 4. Update the App State
-          onLogin();
-        }
-      } catch (error) {
-        console.error("Storage Error:", error);
-        Alert.alert("Error", "Something went wrong with storage.");
+  const executeLogin = async (user: any, token: string) => {
+    const currentDevice = Device.modelName || "unknown";
+    try {
+      // FALLBACK: Use AsyncStorage on Web, SecureStore on Mobile
+      if (Platform.OS === "web") {
+        await AsyncStorage.setItem("user_token", token);
+      } else {
+        // FIXED: Using standard documented Expo API call
+        await SecureStore.setItemAsync("userToken", token);
       }
-    } else {
-      Alert.alert(
-        t("Error", "خطأ"),
-        t("Invalid credentials", "بيانات الاعتماد غير صالحة"),
-      );
+
+      await login(user, token, currentDevice);
+    } catch (error) {
+      console.error("Token storage error:", error);
+      Alert.alert(t("Error"), "Failed to secure session.");
     }
   };
+
+  const handlePasswordLogin = async () => {
+    if (!username || !password) {
+      Alert.alert(
+        t("Required", "مطلوب"),
+        t("Please fill all fields", "يرجى ملء جميع الحقول"),
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const cleanUsername = username.trim().toLowerCase();
+      const cleanPassword = password.trim();
+
+      const response = await api.post("/api/login", {
+        username: cleanUsername,
+        password: cleanPassword,
+      });
+
+      if (response.data.token) {
+        await executeLogin(response.data.user, response.data.token);
+      }
+    } catch (error: any) {
+      console.log(
+        "Login Error Details:",
+        error.response?.data || error.message,
+      );
+
+      const errorMessage =
+        error.response?.status === 401
+          ? t("Invalid credentials", "بيانات غير صالحة")
+          : "Server error. Please try again later.";
+
+      Alert.alert(t("Error", "خطأ"), errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isRTL = lang === "ar";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -87,19 +98,16 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
             <Ionicons name="shield-checkmark" size={60} color="#FFD700" />
           </View>
           <Text style={styles.welcomeText}>
-            {t("Welcome Back", "مرحباً بك مجدداً")}
+            {t("Welcome Back", "مرحباً بك")}
           </Text>
-          <Text style={styles.subText}>
-            {t("Please sign in to continue", "الرجاء تسجيل الدخول للمتابعة")}
-          </Text>
+          <Text style={styles.subText}>{t("Secure Access", "وصول آمن")}</Text>
         </View>
 
         <View style={styles.formSection}>
-          {/* Username Input */}
           <View
             style={[
               styles.inputWrapper,
-              { flexDirection: lang === "ar" ? "row-reverse" : "row" },
+              { flexDirection: isRTL ? "row-reverse" : "row" },
             ]}
           >
             <Ionicons
@@ -109,23 +117,19 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
               style={styles.inputIcon}
             />
             <TextInput
-              style={[
-                styles.input,
-                { textAlign: lang === "ar" ? "right" : "left" },
-              ]}
+              style={[styles.input, { textAlign: isRTL ? "right" : "left" }]}
               placeholder={t("Username", "اسم المستخدم")}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
-              placeholderTextColor="#999"
+              editable={!loading}
             />
           </View>
 
-          {/* Password Input */}
           <View
             style={[
               styles.inputWrapper,
-              { flexDirection: lang === "ar" ? "row-reverse" : "row" },
+              { flexDirection: isRTL ? "row-reverse" : "row" },
             ]}
           >
             <Ionicons
@@ -135,15 +139,12 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
               style={styles.inputIcon}
             />
             <TextInput
-              style={[
-                styles.input,
-                { textAlign: lang === "ar" ? "right" : "left" },
-              ]}
+              style={[styles.input, { textAlign: isRTL ? "right" : "left" }]}
               placeholder={t("Password", "كلمة المرور")}
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
-              placeholderTextColor="#999"
+              editable={!loading}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
@@ -154,25 +155,19 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>
-              {t("Sign In", "تسجيل الدخول")}
-            </Text>
+          <TouchableOpacity
+            style={[styles.loginButton, loading && { opacity: 0.7 }]}
+            onPress={handlePasswordLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <Text style={styles.loginButtonText}>
+                {t("Sign In", "تسجيل الدخول")}
+              </Text>
+            )}
           </TouchableOpacity>
-
-          <View style={styles.infoBox}>
-            <Ionicons
-              name="information-circle-outline"
-              size={16}
-              color="#888"
-            />
-            <Text style={styles.infoText}>
-              {t(
-                "Accounts are restricted to one device at a time.",
-                "الحسابات مقيدة بجهاز واحد فقط في المرة الواحدة.",
-              )}
-            </Text>
-          </View>
         </View>
 
         <View style={styles.footer}>
@@ -188,46 +183,39 @@ const styles = StyleSheet.create({
   inner: { flex: 1, padding: 30, justifyContent: "center" },
   headerSection: { alignItems: "center", marginBottom: 40 },
   logoContainer: {
-    width: 100,
-    height: 100,
+    width: 90,
+    height: 90,
     backgroundColor: "#000",
-    borderRadius: 50,
+    borderRadius: 45,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
-    elevation: 5,
+    elevation: 4,
   },
-  welcomeText: { fontSize: 24, fontWeight: "bold", color: "#000" },
-  subText: { fontSize: 14, color: "#666", marginTop: 8 },
+  welcomeText: { fontSize: 22, fontWeight: "bold", color: "#000" },
+  subText: { fontSize: 13, color: "#888", marginTop: 5 },
   formSection: { width: "100%" },
   inputWrapper: {
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8F8F8",
     borderRadius: 12,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 14,
     marginBottom: 15,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: "#efefef",
   },
-  inputIcon: { marginHorizontal: 10 },
+  inputIcon: { marginHorizontal: 8 },
   input: { flex: 1, fontSize: 16, color: "#000" },
   loginButton: {
     backgroundColor: "#FFD700",
     borderRadius: 12,
-    paddingVertical: 15,
+    paddingVertical: 16,
     alignItems: "center",
     marginTop: 10,
     elevation: 2,
   },
   loginButtonText: { fontSize: 16, fontWeight: "bold", color: "#000" },
-  infoBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-  },
-  infoText: { fontSize: 12, color: "#888", marginLeft: 5 },
   footer: {
     position: "absolute",
     bottom: 30,
@@ -235,5 +223,5 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: "center",
   },
-  footerText: { fontSize: 12, color: "#bbb" },
+  footerText: { fontSize: 11, color: "#ccc" },
 });

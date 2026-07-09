@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Stack, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useState } from "react";
 import {
   Platform,
   SafeAreaView,
@@ -11,41 +11,52 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// 1. Import the new components
 import OrderSuccessModal from "../../components/OrderSuccessModal";
+import { useCart } from "../../context/CartContext"; // 👈 1. Corrected relative path to app/context
+
+// Define basic interface for cart reducing type-safety
+interface CartItem {
+  title?: string;
+  name?: string;
+  price: number | string;
+  quantity: number;
+}
 
 export default function PaymentPage() {
   const router = useRouter();
+  const { cart } = useCart(); // 👈 2. Access the active cart data array here
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [defaultAddress, setDefaultAddress] = useState<any>(null);
+  const [showSuccess, setShowSuccess] = useState(false); // 👈 This tracks your visibility state!
 
-  // 2. Add state for the Success Modal
-  const [showSuccess, setShowSuccess] = useState(false);
+  // Listen reactively every time user returns to payment page from address flows
+  useFocusEffect(
+    useCallback(() => {
+      const loadDefaultAddress = async () => {
+        try {
+          const savedAddresses = await AsyncStorage.getItem("user_addresses");
+          const defaultId = await AsyncStorage.getItem("default_address_id");
 
-  useEffect(() => {
-    const loadDefaultAddress = async () => {
-      try {
-        const savedAddresses = await AsyncStorage.getItem("user_addresses");
-        const defaultId = await AsyncStorage.getItem("default_address_id");
-
-        if (savedAddresses && defaultId) {
-          const list = JSON.parse(savedAddresses);
-          const found = list.find((item: any) => item.id === defaultId);
-          setDefaultAddress(found);
-        } else if (savedAddresses) {
-          const list = JSON.parse(savedAddresses);
-          if (list.length > 0) setDefaultAddress(list[0]);
+          if (savedAddresses) {
+            const list = JSON.parse(savedAddresses);
+            if (list.length > 0) {
+              const found =
+                list.find((item: any) => item.id === defaultId) || list[0];
+              setDefaultAddress(found);
+            } else {
+              setDefaultAddress(null);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to load or sync current active address", e);
         }
-      } catch (e) {
-        console.error("Failed to load address", e);
-      }
-    };
-    loadDefaultAddress();
-  }, []);
+      };
 
-  // 3. Create the Place Order Handler
+      loadDefaultAddress();
+    }, []),
+  );
+
   const handlePlaceOrder = () => {
-    // You can add your backend API call here later
     setShowSuccess(true);
   };
 
@@ -229,7 +240,7 @@ export default function PaymentPage() {
           <TouchableOpacity
             style={[styles.payBtn, !selectedMethod && styles.payBtnDisabled]}
             disabled={!selectedMethod}
-            onPress={handlePlaceOrder} // 4. Updated press handler
+            onPress={handlePlaceOrder}
           >
             <Text style={styles.payBtnText}>
               {selectedMethod ? "PLACE ORDER" : "SELECT PAYMENT"}
@@ -243,24 +254,34 @@ export default function PaymentPage() {
         </View>
       </SafeAreaView>
 
-      {/* 5. The Success Overlay */}
+      {/* 🚀 FIXED MODAL INGESTION BLOCK 🚀 */}
       <OrderSuccessModal
         visible={showSuccess}
         onClose={() => setShowSuccess(false)}
-        orderItem="Shoes"
-        orderPrice={200}
+        orderItem={
+          cart && cart.length > 1
+            ? `${(cart[0] as any)?.title || (cart[0] as any)?.name || "Item"} + ${cart.length - 1} more items`
+            : cart && cart.length === 1
+              ? (cart[0] as any)?.title || (cart[0] as any)?.name || "Product"
+              : "Product"
+        }
+        orderPrice={
+          cart && cart.length > 0
+            ? cart.reduce(
+                (sum: number, item: any) =>
+                  sum + Number(item.price) * (item.quantity || 1),
+                0,
+              )
+            : 0
+        }
       />
     </View>
   );
 }
 
-// ... existing styles ...
-
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: "#F8FAFC" },
   scrollContent: { padding: 20, paddingBottom: 120 },
-
-  // New Address Styles
   addressSection: { marginBottom: 20 },
   addressHeader: {
     flexDirection: "row",
@@ -296,7 +317,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 2,
   },
-
   sectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
@@ -399,20 +419,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 17, fontWeight: "800", color: "#0F172A" },
   vatText: { fontSize: 12, color: "#64748B", fontWeight: "400" },
   totalValue: { fontSize: 20, fontWeight: "900", color: "#2B57CC" },
-  pointsCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 16,
-    marginTop: 15,
-  },
-  pointsInfo: { flexDirection: "row", alignItems: "center" },
-  pointsIconBg: { padding: 8, backgroundColor: "#EEF2FF", borderRadius: 10 },
-  pointsTitle: { fontWeight: "700", fontSize: 14, color: "#1E293B" },
-  pointsSub: { fontSize: 12, color: "#64748B", marginTop: 2 },
-  selectText: { color: "#2B57CC", fontWeight: "800", fontSize: 14 },
   footerContainer: {
     position: "absolute",
     bottom: 0,

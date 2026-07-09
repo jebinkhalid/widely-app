@@ -13,9 +13,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCart } from "../../context/CartContext";
 import { useLanguage } from "../../context/LanguageProvider";
+import api from "../../services/api";
 
 export default function CartScreen() {
-  const { cart, removeFromCart, totalPrice, clearCart } = useCart();
+  const { cart, removeFromCart, totalPrice } = useCart();
   const { lang, t } = useLanguage();
   const router = useRouter();
 
@@ -23,23 +24,35 @@ export default function CartScreen() {
     if (cart.length === 0) return;
 
     try {
-      // 1. Check if there are any saved addresses
-      const saved = await AsyncStorage.getItem("user_addresses");
-      const list = saved ? JSON.parse(saved) : [];
+      // SECURE CHECK: Fetch addresses from backend database
+      const response = await api.get("/api/addresses");
+      const addressList = response.data;
 
-      if (list.length > 0) {
-        // CASE A: User HAS an address. Go straight to Payment.
+      if (addressList && addressList.length > 0) {
+        // Path B: User already has addresses saved -> Forward directly to Payment
         router.push("/checkout/payment");
       } else {
-        // CASE B: First-time user. Start the Address Flow.
+        // Path A: No address found -> Route through onboarding maps
         router.push({
           pathname: "/checkout/location",
           params: { from: "checkout" },
         });
       }
     } catch (error) {
-      console.error("Error checking addresses", error);
-      // Fallback: send to location if something fails
+      console.error("Error fetching addresses", error);
+
+      // Secondary fallback verification: Check local storage before enforcing location onboarding
+      try {
+        const localAddresses = await AsyncStorage.getItem("user_addresses");
+        if (localAddresses && JSON.parse(localAddresses).length > 0) {
+          router.push("/checkout/payment");
+          return;
+        }
+      } catch (innerErr) {
+        console.error("Local recovery search failed", innerErr);
+      }
+
+      // Final fallback safety alternative
       router.push("/checkout/location");
     }
   };

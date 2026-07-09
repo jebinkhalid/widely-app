@@ -1,104 +1,193 @@
 import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-const BASE_URL =
-  Platform.OS === "web" ? "http://127.0.0.1:5000" : "http://172.20.10.3:5000";
+import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageProvider";
+import api from "../services/api";
 
+// Define TypeScript structure based on your MongoDB Schema
 interface Order {
   _id: string;
   item: string;
   price: number;
+  image?: string;
+  address?: string;
+  paymentMethod?: string;
   status: string;
   createdAt: string;
 }
 
 export default function OrdersListScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { lang, t } = useLanguage();
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const isRTL = lang === "ar";
+
   useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
-    try {
-      // NOTE: Make sure your backend has app.get('/api/my-orders/:username')
-      const res = await axios.get(`${BASE_URL}/api/my-orders/rashid_21`);
-      setOrders(res.data);
-    } catch (err: any) {
-      if (err.response && err.response.status === 404) {
-        console.log("❌ Error 404: The route was not found on the server.");
-      } else {
-        console.log("❌ Error fetching orders:", err.message);
+    const fetchOrderHistory = async () => {
+      if (!user?.id) {
+        console.warn("⚠️ No user ID found in auth context yet.");
+        setLoading(false);
+        return;
       }
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        setLoading(true);
+        console.log(`📡 Requesting database sync for user ID: ${user.id}`);
 
-  if (loading) {
+        // Hitting your freshly deployed endpoint
+        const response = await api.get(`/api/my-orders/${user.id}`);
+
+        if (Array.isArray(response.data)) {
+          setOrders(response.data);
+        }
+      } catch (error) {
+        console.error("❌ Failed to pull live orders from MongoDB:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrderHistory();
+  }, [user]);
+
+  // Design structure for individual purchase rows
+  const renderOrderCard = ({ item }: { item: Order }) => {
+    const formattedDate = new Date(item.createdAt).toLocaleDateString(
+      lang === "ar" ? "ar-SA" : "en-US",
+      { year: "numeric", month: "short", day: "numeric" },
+    );
+
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FFD700" />
+      <View style={styles.orderCard}>
+        {/* Card Header metadata */}
+        <View
+          style={[
+            styles.cardHeader,
+            { flexDirection: isRTL ? "row-reverse" : "row" },
+          ]}
+        >
+          <View
+            style={{ flex: 1, alignItems: isRTL ? "flex-end" : "flex-start" }}
+          >
+            <Text style={styles.orderIdText}>
+              {t("Order ID:", "رقم الطلب:")} #{item._id.slice(-6).toUpperCase()}
+            </Text>
+            <Text style={styles.dateText}>{formattedDate}</Text>
+          </View>
+          <View
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor:
+                  item.status === "Placed" ? "#eff6ff" : "#f0f0f0",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                { color: item.status === "Placed" ? "#1e40af" : "#333" },
+              ]}
+            >
+              {t(
+                item.status,
+                item.status === "Placed" ? "تم مراجعته" : item.status,
+              )}
+            </Text>
+          </View>
+        </View>
+
+        {/* Product row item parameters */}
+        <View
+          style={[
+            styles.productRow,
+            { flexDirection: isRTL ? "row-reverse" : "row" },
+          ]}
+        >
+          {/* Default icon box representing the purchase item type */}
+          <View style={styles.iconPlaceholderBox}>
+            <Ionicons name="cube-outline" size={24} color="#FFD700" />
+          </View>
+
+          <View
+            style={[
+              styles.productInfo,
+              { alignItems: isRTL ? "flex-end" : "flex-start" },
+            ]}
+          >
+            <Text numberOfLines={2} style={styles.productTitle}>
+              {item.item}
+            </Text>
+            <Text style={styles.productPrice}>
+              SAR {Number(item.price).toFixed(2)}
+            </Text>
+          </View>
+        </View>
       </View>
     );
-  }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="black" />
+      {/* Custom Dynamic Navigation Bar */}
+      <View
+        style={[
+          styles.headerBar,
+          { flexDirection: isRTL ? "row-reverse" : "row" },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <Ionicons
+            name={isRTL ? "arrow-forward" : "arrow-back"}
+            size={24}
+            color="#000"
+          />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Order History</Text>
+        <Text style={styles.headerTitle}>
+          {t("Order History", "سجل الطلبات")}
+        </Text>
+        <View style={{ width: 24 }} /> {/* Balancing box block */}
       </View>
 
-      {orders.length === 0 ? (
-        <View style={styles.center}>
-          <Ionicons name="gift-outline" size={60} color="#ccc" />
-          <Text style={styles.emptyText}>No orders found yet.</Text>
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#000" />
+        </View>
+      ) : orders.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <Ionicons
+            name="gift-outline"
+            size={80}
+            color="#ccc"
+            style={{ marginBottom: 15 }}
+          />
+          <Text style={styles.emptyText}>
+            {t("No orders found yet", "لم يتم العثور على طلبات بعد")}
+          </Text>
         </View>
       ) : (
         <FlatList
           data={orders}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={{ padding: 15 }}
-          renderItem={({ item }) => (
-            <View style={styles.wishlistCard}>
-              <View style={styles.imageContainer}>
-                <Ionicons name="cube-outline" size={30} color="#ccc" />
-              </View>
-              <View style={styles.infoContainer}>
-                <Text style={styles.itemTitle}>{item.item}</Text>
-                <Text style={styles.itemPrice}>{item.price} SAR</Text>
-                <View style={styles.statusRow}>
-                  <View
-                    style={[
-                      styles.statusDot,
-                      {
-                        backgroundColor:
-                          item.status === "Delivered" ? "#28a745" : "#FFD700",
-                      },
-                    ]}
-                  />
-                  <Text style={styles.statusText}>{item.status}</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#ccc" />
-            </View>
-          )}
+          renderItem={renderOrderCard}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </SafeAreaView>
@@ -107,39 +196,69 @@ export default function OrdersListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f7f7f9" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 20,
+  headerBar: {
+    height: 56,
     backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  backBtn: { marginRight: 15 },
-  headerTitle: { fontSize: 18, fontWeight: "bold" },
-  wishlistCard: {
-    backgroundColor: "#fff",
-    flexDirection: "row",
+  backButton: { padding: 4 },
+  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 10,
-    elevation: 2,
+    padding: 20,
   },
-  imageContainer: {
-    width: 65,
-    height: 65,
-    backgroundColor: "#f9f9f9",
+  emptyText: { fontSize: 16, color: "#888", fontWeight: "500" },
+  listContent: { padding: 16 },
+  orderCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  cardHeader: {
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
+    paddingBottom: 12,
+    marginBottom: 12,
+  },
+  orderIdText: { fontSize: 14, fontWeight: "700", color: "#111" },
+  dateText: { fontSize: 12, color: "#888", marginTop: 2 },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusText: { fontSize: 12, fontWeight: "600" },
+  productRow: {
+    alignItems: "center",
+  },
+  iconPlaceholderBox: {
+    width: 48,
+    height: 48,
     borderRadius: 10,
+    backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
   },
-  infoContainer: { flex: 1, marginLeft: 15 },
-  itemTitle: { fontSize: 15, fontWeight: "600", color: "#333" },
-  itemPrice: { fontSize: 14, fontWeight: "bold", color: "#000", marginTop: 2 },
-  statusRow: { flexDirection: "row", alignItems: "center", marginTop: 5 },
-  statusDot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 5 },
-  statusText: { fontSize: 12, color: "#777" },
-  emptyText: { marginTop: 10, color: "#888", fontSize: 16 },
+  productInfo: { flex: 1, marginHorizontal: 12 },
+  productTitle: { fontSize: 14, fontWeight: "600", color: "#333" },
+  productPrice: {
+    fontSize: 13,
+    color: "#666",
+    fontWeight: "bold",
+    marginTop: 4,
+  },
 });

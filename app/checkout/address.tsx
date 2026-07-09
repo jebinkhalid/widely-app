@@ -31,10 +31,8 @@ export default function AddressDetailsPage() {
   const [phone, setPhone] = useState("");
 
   // Sync location data to state ONLY on initial load
-  // 1. Sync data on load: If editing, find the existing address and fill the fields
   useEffect(() => {
     const loadExistingData = async () => {
-      // If there is an ID in params, we are in "Edit Mode"
       if (params.id) {
         const saved = await AsyncStorage.getItem("user_addresses");
         if (saved) {
@@ -42,19 +40,20 @@ export default function AddressDetailsPage() {
           const existing = list.find((item: any) => item.id === params.id);
 
           if (existing) {
-            // Fill your states with the existing data so it's not empty
             setAddressType(existing.type || "Home");
             setFirstName(existing.name.split(" ")[0] || "");
             setLastName(existing.name.split(" ")[1] || "");
             setPhone(existing.phone.replace("+966", ""));
             setNickname(existing.nickname || "");
             setDirections(existing.directions || "");
-            // Split the text to recover buildingName and aptNo if needed
-            // or better yet, store them as separate keys in the object
+            // Extracted values if stored compound text
+            const parsedApt = existing.text.split(", ")[0];
+            if (parsedApt) setAptNo(parsedApt);
+            const parsedBuilding = existing.text.split(", ")[1];
+            if (parsedBuilding) setBuildingName(parsedBuilding);
           }
         }
       } else {
-        // "New Mode": Just set the building name from the map
         const initialLocation = (params.shortCode ||
           params.buildingName ||
           "") as string;
@@ -78,8 +77,10 @@ export default function AddressDetailsPage() {
       const saved = await AsyncStorage.getItem("user_addresses");
       let list = saved ? JSON.parse(saved) : [];
 
+      const targetId = (params.id as string) || Date.now().toString();
+
       const addressData = {
-        id: (params.id as string) || Date.now().toString(),
+        id: targetId,
         type: addressType,
         text: `${aptNo}, ${buildingName}, ${params.district || "Jeddah"}`,
         directions: directions,
@@ -97,20 +98,18 @@ export default function AddressDetailsPage() {
         // Add new
         list.push(addressData);
 
-        // Auto-default if it's the first one
-        if (list.length === 1) {
+        // Auto-set as default if it's the first one OR if creating during dynamic checkout flow
+        if (list.length === 1 || params.from === "checkout") {
           await AsyncStorage.setItem("default_address_id", addressData.id);
         }
       }
 
       await AsyncStorage.setItem("user_addresses", JSON.stringify(list));
 
-      // --- THE NAVIGATION FIX ---
+      // --- THE NAVIGATION ROUTER ---
       if (params.from === "checkout") {
-        // If coming from Cart -> Map -> Here, go to Payment
         router.replace("/checkout/payment");
       } else {
-        // Otherwise, go back to the Address Book list (for Profile management)
         router.replace("/checkout/address-book");
       }
     } catch (error) {
@@ -209,7 +208,7 @@ export default function AddressDetailsPage() {
             style={styles.input}
             placeholder="Address here"
             value={buildingName}
-            onChangeText={setBuildingName} // Allows manual override
+            onChangeText={setBuildingName}
           />
 
           {/* 3. Directions (Optional) */}
